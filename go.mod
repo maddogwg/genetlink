@@ -14,4 +14,4 @@ require (
 	golang.org/x/sync v0.20.0 // indirect
 )
 
-replace github.com/mdlayher/netlink => github.com/maddogwg/netlink v0.0.0-20260801171125-f905dd82e69b
+replace github.com/mdlayher/netlink => github.com/maddogwg/netlink v0.0.0-20260801185548-7f04072a805d
