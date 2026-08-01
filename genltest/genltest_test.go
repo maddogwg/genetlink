@@ -30,6 +30,14 @@ func TestConnSend(t *testing.T) {
 	if _, err := c.Send(req, 1, 1); err != nil {
 		t.Fatalf("failed to send request: %v", err)
 	}
+
+	if _, err := c.SendTo(req, 1, 1, 0); err != nil {
+		t.Fatalf("failed to send request using SendTo: %v", err)
+	}
+
+	if _, err := c.Multicast(req, 1, 1, 0); err != nil {
+		t.Fatalf("failed to multicast request: %v", err)
+	}
 }
 
 func TestConnExecuteOK(t *testing.T) {

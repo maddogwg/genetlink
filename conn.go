@@ -131,12 +131,35 @@ func (c *Conn) SetWriteDeadline(t time.Time) error {
 // returns a copy of the netlink.Message with all parameters populated, for
 // later validation.
 func (c *Conn) Send(m Message, family uint16, flags netlink.HeaderFlags) (netlink.Message, error) {
+	return c.SendTo(m, family, flags, 0)
+}
+
+// Same as Send, except to a specified destination.
+func (c *Conn) SendTo(m Message, family uint16, flags netlink.HeaderFlags, pid uint32) (netlink.Message, error) {
 	nm, err := packMessage(m, family, flags)
 	if err != nil {
 		return netlink.Message{}, err
 	}
 
-	reqnm, err := c.c.Send(nm)
+	reqnm, err := c.c.SendTo(nm, pid)
+	if err != nil {
+		return netlink.Message{}, err
+	}
+
+	return reqnm, nil
+}
+
+// Multicast a message to a specified group, wrapping the message in a
+// netlink.Message using the specified generic netlink family and flags.
+// On success, Multicast returns a copy of the netlink.Message with all
+// parameters populated, for later validation.
+func (c *Conn) Multicast(m Message, family uint16, flags netlink.HeaderFlags, group uint32) (netlink.Message, error) {
+	nm, err := packMessage(m, family, flags)
+	if err != nil {
+		return netlink.Message{}, err
+	}
+
+	reqnm, err := c.c.Multicast(nm, group)
 	if err != nil {
 		return netlink.Message{}, err
 	}
