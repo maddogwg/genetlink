@@ -84,21 +84,49 @@ func TestConnSend(t *testing.T) {
 		Data: mustMarshal(req),
 	}
 
-	c := genltest.Dial(func(_ genetlink.Message, nreq netlink.Message) ([]genetlink.Message, error) {
-		if diff := diffNetlinkMessages(want, nreq); diff != "" {
-			t.Fatalf("unexpected sent netlink message (-want +got):\n%s", diff)
-		}
-
-		return nil, nil
-	})
-
-	nlreq, err := c.Send(req, family, flags)
-	if err != nil {
-		t.Fatalf("failed to send: %v", err)
+	tests := []struct {
+		name string
+		send func(c *genetlink.Conn) (netlink.Message, error)
+	}{
+		{
+			name: "Send",
+			send: func(c *genetlink.Conn) (netlink.Message, error) {
+				return c.Send(req, family, flags)
+			},
+		},
+		{
+			name: "SendTo",
+			send: func(c *genetlink.Conn) (netlink.Message, error) {
+				return c.SendTo(req, family, flags, 0)
+			},
+		},
+		{
+			name: "Multicast",
+			send: func(c *genetlink.Conn) (netlink.Message, error) {
+				return c.Multicast(req, family, flags, 0)
+			},
+		},
 	}
 
-	if diff := diffNetlinkMessages(want, nlreq); diff != "" {
-		t.Fatalf("unexpected returned netlink message (-want +got):\n%s", diff)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			c := genltest.Dial(func(_ genetlink.Message, nreq netlink.Message) ([]genetlink.Message, error) {
+				if diff := diffNetlinkMessages(want, nreq); diff != "" {
+					t.Fatalf("unexpected sent netlink message (-want +got):\n%s", diff)
+				}
+
+				return nil, nil
+			})
+
+			nlreq, err := tt.send(c)
+			if err != nil {
+				t.Fatalf("failed to send: %v", err)
+			}
+
+			if diff := diffNetlinkMessages(want, nlreq); diff != "" {
+				t.Fatalf("unexpected returned netlink message (-want +got):\n%s", diff)
+			}
+		})
 	}
 }
 

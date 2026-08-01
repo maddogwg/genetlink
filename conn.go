@@ -71,6 +71,13 @@ func (c *Conn) LeaveGroup(group uint32) error {
 	return c.c.LeaveGroup(group)
 }
 
+// PID returns the PID associated with the Conn. It is also known as
+// the port ID in netlink terminology.
+// https://docs.kernel.org/userspace-api/netlink/intro.html#nlmsg-pid
+func (c *Conn) PID() uint32 {
+	return c.c.PID()
+}
+
 // SetBPF attaches an assembled BPF program to a Conn.
 func (c *Conn) SetBPF(filter []bpf.RawInstruction) error {
 	return c.c.SetBPF(filter)
@@ -127,14 +134,24 @@ func (c *Conn) SetWriteDeadline(t time.Time) error {
 }
 
 // Send sends a single Message to netlink, wrapping it in a netlink.Message
-// using the specified generic netlink family and flags.  On success, Send
+// using the specified generic netlink family and flags. On success, Send
 // returns a copy of the netlink.Message with all parameters populated, for
 // later validation.
+//
+// Send delivers the message to the kernel (unicast port ID 0). To send
+// to a specific userspace port ID, use SendTo. To send to a multicast
+// group, use Multicast.
 func (c *Conn) Send(m Message, family uint16, flags netlink.HeaderFlags) (netlink.Message, error) {
 	return c.SendTo(m, family, flags, 0)
 }
 
-// Same as Send, except to a specified destination.
+// SendTo is like Send, but sends the message to the unicast netlink
+// port ID specified by pid. A pid of 0 sends to the kernel, matching
+// the behavior of Send.
+//
+// SendTo is useful for userspace-to-userspace netlink communication,
+// where pid is typically the port ID of a peer Conn. See also
+// netlink.Config.PID and Conn.PID.
 func (c *Conn) SendTo(m Message, family uint16, flags netlink.HeaderFlags, pid uint32) (netlink.Message, error) {
 	nm, err := packMessage(m, family, flags)
 	if err != nil {
@@ -149,10 +166,16 @@ func (c *Conn) SendTo(m Message, family uint16, flags netlink.HeaderFlags, pid u
 	return reqnm, nil
 }
 
-// Multicast a message to a specified group, wrapping the message in a
-// netlink.Message using the specified generic netlink family and flags.
-// On success, Multicast returns a copy of the netlink.Message with all
-// parameters populated, for later validation.
+// Multicast is like Send, but sends the message to the multicast
+// group(s) identified by group. group is a bit mask of multicast
+// groups, matching the semantics of netlink.Config.Groups and
+// unix.SockaddrNetlink.Groups. A group of 0 does not target any
+// multicast groups.
+//
+// Multicast only controls the send destination; it does not join any
+// groups. Use JoinGroup or netlink.Config.Groups to receive multicast
+// messages. Sending or receiving netlink multicast messages typically
+// requires CAP_NET_ADMIN (see netlink(7)).
 func (c *Conn) Multicast(m Message, family uint16, flags netlink.HeaderFlags, group uint32) (netlink.Message, error) {
 	nm, err := packMessage(m, family, flags)
 	if err != nil {
